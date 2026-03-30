@@ -1,18 +1,25 @@
 import { images } from "@/constants/images";
 import { router } from "expo-router";
 import React from "react";
-import { Image, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import {
+  Image,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 
-const login = () => {
-
-  const navcool = () => {
-    router.push("/login/signup");
+const signup = () => {
+  const navfunc = () => {
+    router.push("/login/login");
   };
   return (
-    <ScrollView  
+    <ScrollView
       className="flex-1"
-      contentContainerStyle={{ alignItems: "center", paddingTop: 100, paddingBottom: 40 }}
-      scrollEnabled={true}>
+      contentContainerStyle={{ alignItems: "center", paddingTop: 128, paddingBottom: 40 }}
+      scrollEnabled={true}
+    >
       <Image source={images.logo} />
 
       <View className="flex gap-20">
@@ -44,8 +51,22 @@ const login = () => {
           placeholderTextColor="#999"
         />
 
+        <TextInput
+          placeholder="Password"
+          secureTextEntry
+          textContentType="password"
+          className="border-b px-[15rem]"
+          style={{
+            width: "85%",
+            textAlign: "left",
+            paddingLeft: 4,
+            textAlignVertical: "center",
+          }}
+          placeholderTextColor="#999"
+        />
+
         <Pressable className="bg-black px-20 py-3 rounded-full justify-center items-center">
-          <Text className="text-white font-bold">Login</Text>
+          <Text className="text-white font-bold">Signup</Text>
         </Pressable>
       </View>
 
@@ -54,17 +75,15 @@ const login = () => {
           Forgot Password?{" "}
           <Text className="text-[#00822F] font-bold">Reset here</Text>
         </Text>
-        <View className="text-center flex-row">
-          <Text className="text-center font-bold">
-            Don&apos;t have an account?{" "}
+        <Text className="text-center font-bold">
+          Have an account?{" "}
+          <Text className="text-[#00822F] font-bold" onPress={navfunc}>
+            Login here
           </Text>
-          <Pressable onPress={navcool}>
-            <Text className="text-[#00822F] font-bold">Register here</Text>
-          </Pressable>
-        </View>
+        </Text>
       </View>
     </ScrollView>
   );
 };
 
-export default login;
+export default signup;
