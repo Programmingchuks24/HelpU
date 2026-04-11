@@ -5,11 +5,11 @@ import { useRouter } from "expo-router";
 
 export default function Index() {
   const buttonfunction = () => {
-     router.push("/landingscreens/register");
+     router.replace("/landingscreens/register");
   };
 
   const handleclick = () => {
-    router.push("/landingscreens/register");
+    router.replace("/landingscreens/register");
   };
 
   const router = useRouter();

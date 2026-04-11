@@ -8,7 +8,7 @@ const Register = () => {
   const router = useRouter();
 
     const handleclick = () => {
-        router.push("/login/login");
+        router.replace("/login/login");
       };
 
   return (
