@@ -1,26 +1,47 @@
-import {
-  View,
-  Text,
-  Pressable,
-  ActivityIndicator,
-  ScrollView,
-  Image,
-} from "react-native";
-import { supabase } from "@/lib/supabase"; // Adjust path if needed
-import {
-  SafeAreaView,
-  useSafeAreaInsets,
-} from "react-native-safe-area-context";
-import { use, useCallback, useEffect, useState } from "react";
 import { images } from "@/constants/images";
+import { supabase } from "@/lib/supabase"; // Adjust path if needed
 import { router, useFocusEffect } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function Home() {
   const insets = useSafeAreaInsets();
 
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [matches, setMatches] = useState<any[]>([]); // NEW: State for matched counsellor/teacher
+  const [matches, setMatches] = useState<any[]>([]);
+  const [appointments, setAppointments] = useState<any[]>([]);
+
+  const fetchAppointments = async (userId: string, role: string) => {
+    const column = role === "student" ? "student_id" : "counsellor_id";
+
+    // We want to fetch the 'other' person's name
+    // If I'm a student, join the counsellor's name.
+    // If I'm a counsellor, join the student's name.
+    const profileJoin = role === "student" ? "counsellor_id" : "student_id";
+
+    const { data, error } = await supabase
+      .from("appointments")
+      .select(
+        `
+      *,
+      person: ${profileJoin} (full_name, username)
+    `,
+      )
+      .eq(column, userId)
+      .order("appointment_date", { ascending: true });
+
+    if (!error) setAppointments(data);
+  };
 
   const handleSignOut = async () => {
     const { error } = await supabase.auth.signOut();
@@ -70,9 +91,95 @@ export default function Home() {
 
         if (!error) setMatches(matchData);
       }
+
+      // 3. Fetch Appointments
+      if (userData?.role) {
+        await fetchAppointments(user.id, userData.role);
+      }
     }
     setLoading(false);
   };
+
+  const bookAppointment = async (
+    counsellorId: string,
+    date: string,
+    time: string,
+  ) => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return;
+
+    const { error } = await supabase.from("appointments").insert({
+      student_id: user.id,
+      counsellor_id: counsellorId,
+      appointment_date: date, // e.g., '2026-04-12'
+      appointment_time: time, // e.g., '10:00:00'
+    });
+
+    if (error) {
+      if (error.code === "23505") {
+        Alert.alert("Error", "This slot is already booked!");
+      } else {
+        Alert.alert("Error", error.message);
+      }
+    } else {
+      Alert.alert("Success", "Appointment requested!");
+    }
+  };
+
+  const updateStatus = async (appointmentId: string, newStatus: string) => {
+    console.log(`Attempting to update ${appointmentId} to ${newStatus}`);
+
+    const { error } = await supabase
+      .from("appointments")
+      .update({ status: newStatus })
+      .eq("id", appointmentId);
+
+    if (error) {
+      console.error("Update Error:", error.message);
+      Alert.alert("Update Failed", error.message);
+    } else {
+      console.log("Update successful in database");
+      // Update local UI immediately
+      setAppointments((prev) =>
+        prev.map((a) =>
+          a.id === appointmentId ? { ...a, status: newStatus } : a,
+        ),
+      );
+    }
+  };
+
+  useEffect(() => {
+    if (!profile?.id) return;
+
+    // Subscribe to changes in the appointments table
+    const subscription = supabase
+      .channel("appointment_updates")
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "appointments",
+          filter: `student_id=eq.${profile.id}`,
+        },
+        (payload) => {
+          // When a change happens, update the local state
+          setAppointments((current) =>
+            current.map((apt) =>
+              apt.id === payload.new.id ? { ...apt, ...payload.new } : apt,
+            ),
+          );
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(subscription);
+    };
+  }, [profile?.id]);
   if (loading) return <ActivityIndicator className="flex-1" />;
 
   return (
@@ -130,44 +237,111 @@ export default function Home() {
               {/* This is where you would map through your Teachers/Counsellors list */}
 
               {matches.length > 0 ? (
-                matches.map((item) => (
-                  <View
-                    key={item.id}
-                    className="bg-white p-5 rounded-2xl mb-4 shadow-sm"
-                  >
-                    <View className="flex-row justify-between items-center">
-                      <View>
-                        <Text className="text-lg font-bold">
-                          {item.full_name}
-                        </Text>
-                        <Text className="text-xs text-green-600 font-semibold uppercase tracking-wider">
-                          {item.role}
-                        </Text>
-                      </View>
-                      <Pressable className="bg-black px-4 py-2 rounded-full">
-                        <Text className="text-white text-sm font-bold">
-                          Message
-                        </Text>
-                      </Pressable>
-                    </View>
+                matches.map((item) => {
+                  const existingApt = appointments.find(
+                    (a) => a.counsellor_id === item.id,
+                  );
 
-                    <View className="flex-row flex-wrap mt-3 gap-2">
-                      {item.interests.map((tag: string) => (
-                        <View
-                          key={tag}
-                          className="bg-gray-100 px-3 py-1 rounded-full"
-                        >
-                          <Text className="text-gray-600 text-xs">{tag}</Text>
+                  return (
+                    <View
+                      key={item.id}
+                      className="bg-white p-5 rounded-2xl mb-4 shadow-sm"
+                    >
+                      <View className="flex-row justify-between items-center">
+                        <View>
+                          <Text className="text-lg font-bold">
+                            {item.full_name}
+                          </Text>
+                          {existingApt && (
+                            <Text className="text-[#00822F] text-xs font-bold">
+                              Status: {existingApt.status}
+                            </Text>
+                          )}
                         </View>
-                      ))}
+
+                        <Pressable
+                          disabled={!!existingApt} // Disable button if already booked
+                          onPress={() =>
+                            router.push(`/counsellor/${item.id}` as any)
+                          }
+                          className={`px-4 py-2 rounded-full ${existingApt ? "bg-gray-300" : "bg-black"}`}
+                        >
+                          <Text className="text-white text-sm font-bold">
+                            {existingApt ? "Booked" : "Book"}
+                          </Text>
+                        </Pressable>
+                      </View>
+
+                      <View className="flex-row flex-wrap mt-3 gap-2">
+                        {item.interests.map((tag: string) => (
+                          <View
+                            key={tag}
+                            className="bg-gray-100 px-3 py-1 rounded-full"
+                          >
+                            <Text className="text-gray-600 text-xs">{tag}</Text>
+                          </View>
+                        ))}
+                      </View>
                     </View>
-                  </View>
-                ))
+                  );
+                })
               ) : (
                 <Text className="text-gray-400 text-center mt-10">
                   No matches found for your interests yet.
                 </Text>
               )}
+            </View>
+          )}
+
+          {/* Appointments Section */}
+          {appointments.length > 0 && (
+            <View className="mb-8">
+              <Text className="text-xl font-bold mb-4">Upcoming Sessions</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {appointments.map((apt) => (
+                  <View
+                    key={apt.id}
+                    className="bg-[#00822F] p-4 rounded-2xl mr-4 w-64"
+                  >
+                    <Text className="text-white opacity-80 text-xs font-bold uppercase">
+                      {apt.appointment_date} @ {apt.appointment_time}
+                    </Text>
+                    <Text className="text-white text-lg font-bold mt-1">
+                      {apt.person?.full_name}
+                    </Text>
+
+                    {/* Status Badge */}
+                    <View className="mt-2 self-start px-2 py-1 rounded bg-white/20">
+                      <Text className="text-white text-xs capitalize">
+                        {apt.status}
+                      </Text>
+                    </View>
+
+                    {/* NEW: Action Buttons for Counsellors only */}
+                    {profile?.role === "counsellor" &&
+                      apt.status === "pending" && (
+                        <View className="flex-row gap-2 mt-4">
+                          <Pressable
+                            onPress={() => updateStatus(apt.id, "confirmed")}
+                            className="bg-white/90 px-3 py-2 rounded-lg flex-1"
+                          >
+                            <Text className="text-[#00822F] text-center font-bold text-xs">
+                              Accept
+                            </Text>
+                          </Pressable>
+                          <Pressable
+                            onPress={() => updateStatus(apt.id, "cancelled")}
+                            className="bg-red-400 px-3 py-2 rounded-lg flex-1"
+                          >
+                            <Text className="text-white text-center font-bold text-xs">
+                              Decline
+                            </Text>
+                          </Pressable>
+                        </View>
+                      )}
+                  </View>
+                ))}
+              </ScrollView>
             </View>
           )}
         </View>

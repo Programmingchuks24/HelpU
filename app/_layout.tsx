@@ -40,8 +40,10 @@ export default function RootLayout() {
 
     const inTabsGroup = segments[0] === "(tabs)";
     const isPickInterest = segments[0] === "pick-interest";
+    const isAllowedModal =
+      segments[0] === "pick-interest" || segments[0] === "counsellor";
 
-    if (session && !inTabsGroup && !isPickInterest) {
+    if (session && !inTabsGroup && !isAllowedModal) {
       // User is logged in but not in the dashboard or allowed modal? Move them there.
       router.replace("/(tabs)/home");
     } else if (!session && inTabsGroup) {

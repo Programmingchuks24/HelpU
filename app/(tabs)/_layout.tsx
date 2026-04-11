@@ -1,5 +1,6 @@
 import { FontAwesome, MaterialIcons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
+import { type ReactElement } from "react";
 
 const _layout = () => {
   return (
@@ -9,7 +10,7 @@ const _layout = () => {
         tabBarActiveTintColor: "#00822F",
         tabBarInactiveTintColor: "gray",
         tabBarIcon: ({ color, size }) => {
-          const icons: Record<string, JSX.Element> = {
+          const icons: Record<string, ReactElement> = {
             home: <MaterialIcons name="home" size={size} color={color} />,
             meetings: <FontAwesome name="calendar" size={size} color={color} />,
             messages: <MaterialIcons name="chat" size={size} color={color} />,

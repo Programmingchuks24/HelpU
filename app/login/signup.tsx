@@ -14,62 +14,61 @@ import {
 } from "react-native";
 
 const Signup = () => {
-
-  const ROLES = ['student', 'counsellor'];
+  const ROLES = ["student", "counsellor"] as const;
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  
+
   // NEW: Additional state for extra info
   const [fullName, setFullName] = useState("");
   const [username, setUsername] = useState("");
-  
+
   const [loading, setLoading] = useState(false);
 
-  const [role, setRole] = useState<"student" | "counsellor" | null>('student'); // NEW: Role selection
+  const [role, setRole] = useState<"student" | "counsellor" | null>("student"); // NEW: Role selection
 
   const navfunc = () => {
     router.push("/login/login");
   };
 
   const handleSignUp = async () => {
-  if (!email || !password || !confirmPassword || !fullName || !username) {
-    Alert.alert("Error", "Please fill in all fields.");
-    return;
-  }
+    if (!email || !password || !confirmPassword || !fullName || !username) {
+      Alert.alert("Error", "Please fill in all fields.");
+      return;
+    }
 
-  if (password !== confirmPassword) {
-    Alert.alert("Error", "Passwords do not match.");
-    return;
-  }
+    if (password !== confirmPassword) {
+      Alert.alert("Error", "Passwords do not match.");
+      return;
+    }
 
-  setLoading(true);
+    setLoading(true);
 
-  // TRUST THE TRIGGER: Just send the metadata. 
-  // The database SQL function we wrote handles the insertion.
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: {
-        full_name: fullName,
-        username: username,
-        role: role,
-        interests: [], 
+    // TRUST THE TRIGGER: Just send the metadata.
+    // The database SQL function we wrote handles the insertion.
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: fullName,
+          username: username,
+          role: role,
+          interests: [],
+        },
       },
-    },
-  });
+    });
 
-  if (error) {
-    Alert.alert("Error", error.message);
-    setLoading(false);
-  } else {
-    // We don't need an alert here because the RootLayout 
-    // will see the new session and redirect to Home automatically.
-    console.log("Signup successful!");
-  }
-};
+    if (error) {
+      Alert.alert("Error", error.message);
+      setLoading(false);
+    } else {
+      // We don't need an alert here because the RootLayout
+      // will see the new session and redirect to Home automatically.
+      console.log("Signup successful!");
+    }
+  };
 
   return (
     <ScrollView
