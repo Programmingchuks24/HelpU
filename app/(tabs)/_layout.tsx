@@ -2,7 +2,15 @@ import { FontAwesome, MaterialIcons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import { type ReactElement } from "react";
 
-const _layout = () => {
+// Moving this outside avoids recreation on every render
+const ICONS: Record<string, (props: { color: string; size: number }) => ReactElement> = {
+  home: (props) => <MaterialIcons name="home" {...props} />,
+  meetings: (props) => <FontAwesome name="calendar" {...props} />,
+  messages: (props) => <MaterialIcons name="chat" {...props} />,
+  profile: (props) => <FontAwesome name="user" {...props} />,
+};
+
+const Layout = () => {
   return (
     <Tabs
       screenOptions={({ route }) => ({
@@ -10,27 +18,19 @@ const _layout = () => {
         tabBarActiveTintColor: "#00822F",
         tabBarInactiveTintColor: "gray",
         tabBarIcon: ({ color, size }) => {
-          const icons: Record<string, ReactElement> = {
-            home: <MaterialIcons name="home" size={size} color={color} />,
-            meetings: <FontAwesome name="calendar" size={size} color={color} />,
-            messages: <MaterialIcons name="chat" size={size} color={color} />,
-            profile: <FontAwesome name="user" size={size} color={color} />,
-          };
-
-          return (
-            icons[route.name] ?? (
-              <MaterialIcons name="circle" size={size} color={color} />
-            )
-          );
+          const IconRenderer = ICONS[route.name];
+          return IconRenderer ? 
+            <IconRenderer color={color} size={size} /> : 
+            <MaterialIcons name="circle" size={size} color={color} />;
         },
       })}
     >
-      <Tabs.Screen name="home" />
-      <Tabs.Screen name="meetings" />
-      <Tabs.Screen name="messages" />
-      <Tabs.Screen name="profile" />
+      <Tabs.Screen name="home" options={{ title: "Home" }} />
+      <Tabs.Screen name="meetings" options={{ title: "Meetings" }} />
+      <Tabs.Screen name="messages" options={{ title: "Messages" }} />
+      <Tabs.Screen name="profile" options={{ title: "Profile" }} />
     </Tabs>
   );
 };
 
-export default _layout;
+export default Layout;

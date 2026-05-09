@@ -5,6 +5,7 @@ import { Image, Pressable, ScrollView, Text, TextInput, View, ActivityIndicator 
 import ToastManager, { Toast } from "toastify-react-native";
 // IMPORT SUPABASE
 import { supabase } from "@/lib/supabase"; 
+import * as Linking from 'expo-linking';
 
 const Login = () => {
   const [newVal, setNewVal] = useState(''); // Email
@@ -39,6 +40,27 @@ const Login = () => {
       // It will auto-redirect when it detects the session!
     }
   };
+
+ const handleForgotPassword = async () => {
+  if (!newVal) {
+    Toast.error("Please enter your email first!");
+    return;
+  }
+
+  const resetLink = Linking.createURL('/login/reset-password');
+  console.log("Supabase will try to redirect to:", resetLink);
+  const { error } = await supabase.auth.resetPasswordForEmail(newVal, {
+    // This tells Supabase where to send the user after they click the link
+    redirectTo: resetLink,
+    
+  });
+
+  if (error) {
+    Toast.error(error.message);
+  } else {
+    Toast.success("Check your email for the reset link!");
+  }
+};
 
   return (
     <ScrollView  
@@ -78,7 +100,7 @@ const Login = () => {
       </View>
 
       <View className="mt-8 gap-4">
-        <Text className="text-center font-bold">
+        <Text className="text-center font-bold" onPress={handleForgotPassword}>
           Forgot Password?{" "}
           <Text className="text-[#00822F]">Reset here</Text>
         </Text>

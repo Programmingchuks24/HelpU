@@ -1,5 +1,5 @@
 import { images } from "@/constants/images";
-import { supabase } from "@/lib/supabase"; // Adjust path if needed
+import { supabase } from "@/lib/supabase"; 
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {

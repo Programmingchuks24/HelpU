@@ -5,6 +5,9 @@ import { Stack, useRouter, useSegments } from "expo-router";
 import { useEffect, useState } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import "./globals.css";
+import * as Linking from 'expo-linking';
+
+const prefix = Linking.createURL('/');
 
 export default function RootLayout() {
   const [session, setSession] = useState<Session | null>(null);
@@ -15,6 +18,15 @@ export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     IrishGrover: require("../assets/fonts/IrishGrover-Regular.ttf"),
   });
+
+  const linking = {
+    prefixes: [prefix, 'helpu://'],
+    config: {
+      screens: {
+        'login/reset-password': 'reset-password',
+      },
+    },
+  };
 
   // 1. Listen for Auth Changes
   useEffect(() => {
@@ -28,6 +40,11 @@ export default function RootLayout() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+
+      if (_event === "PASSWORD_RECOVERY") {
+      // This event fires when the user clicks the email link
+      router.replace("/login/reset-password");
+    }
       setSession(session);
     });
 
@@ -54,6 +71,8 @@ export default function RootLayout() {
 
   if (!fontsLoaded || !isReady) return null;
 
+ 
+
   return (
     <SafeAreaProvider>
       <Stack>
@@ -76,7 +95,10 @@ export default function RootLayout() {
             title: "Select Interests",
           }}
         />
+        <Stack.Screen
+        name="login/reset-password" />
       </Stack>
+      
     </SafeAreaProvider>
   );
 }

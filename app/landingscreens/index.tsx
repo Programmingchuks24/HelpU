@@ -5,7 +5,7 @@ import { useRouter } from "expo-router";
 
 export default function Index() {
   const buttonfunction = () => {
-     router.replace("/landingscreens/register");
+     router.replace("/login/login");
   };
 
   const handleclick = () => {
