@@ -2,40 +2,27 @@
   "expo": {
     "name": "helpu",
     "slug": "helpu",
+    "scheme":"helpu",
     "version": "1.0.0",
     "orientation": "portrait",
-    "scheme": "helpu",
-    "userInterfaceStyle": "automatic",
-    "ios": {
-      "supportsTablet": true
-    },
-    "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE"
-      },
-      "predictiveBackGestureEnabled": false,
-      "package": "com.helpu.app"
-    },
-    "web": {
-      "output": "static"
+    "icon": "./assets/images/logo.png", 
+    "splash": {
+      "image": "./assets/images/logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#ffffff"
+          "image": "./assets/images/logo.png",
+          "backgroundColor": "#ffffff",
+          "imageWidth": 200
         }
       ],
       "expo-secure-store",
-      "expo-font",
-      "expo-image",
-      "expo-web-browser",
-      "@react-native-community/datetimepicker"
-    ],
-    "experiments": {
-      "typedRoutes": true,
-      "reactCompiler": true
-    }
+      "expo-font"
+    ]
   }
 }

@@ -4,10 +4,10 @@ import { type ReactElement } from "react";
 
 // Moving this outside avoids recreation on every render
 const ICONS: Record<string, (props: { color: string; size: number }) => ReactElement> = {
-  home: (props) => <MaterialIcons name="home" {...props} />,
-  meetings: (props) => <FontAwesome name="calendar" {...props} />,
-  messages: (props) => <MaterialIcons name="chat" {...props} />,
-  profile: (props) => <FontAwesome name="user" {...props} />,
+  home: (props) => <MaterialIcons name="home" {...props} />, 
+  meetings: (props) => <FontAwesome name="calendar" {...props} />, 
+  "messages/index": (props) => <MaterialIcons name="chat" {...props} />, // Ensure chat icon for messages tab
+  profile: (props) => <FontAwesome name="user" {...props} />, 
 };
 
 const Layout = () => {
@@ -27,7 +27,7 @@ const Layout = () => {
     >
       <Tabs.Screen name="home" options={{ title: "Home" }} />
       <Tabs.Screen name="meetings" options={{ title: "Meetings" }} />
-      <Tabs.Screen name="messages" options={{ title: "Messages" }} />
+      <Tabs.Screen name="messages/index" options={{ title: "Messages" }} />
       <Tabs.Screen name="profile" options={{ title: "Profile" }} />
     </Tabs>
   );

@@ -152,34 +152,40 @@ export default function Home() {
   };
 
   useEffect(() => {
-    if (!profile?.id) return;
+  if (!profile?.id) return;
 
-    // Subscribe to changes in the appointments table
-    const subscription = supabase
-      .channel("appointment_updates")
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "appointments",
-          filter: `student_id=eq.${profile.id}`,
-        },
-        (payload) => {
-          // When a change happens, update the local state
-          setAppointments((current) =>
-            current.map((apt) =>
-              apt.id === payload.new.id ? { ...apt, ...payload.new } : apt,
-            ),
-          );
-        },
-      )
-      .subscribe();
+  // Use a unique ID to prevent overlapping with old channels during Fast Refresh
+  const channelId = `home_updates_${profile.id}_${Date.now()}`;
+  const channel = supabase.channel(channelId);
 
-    return () => {
-      supabase.removeChannel(subscription);
-    };
-  }, [profile?.id]);
+  // console.log('Setting up Home subscription...');
+
+  // IMPORTANT: The chain MUST be .on() then .subscribe()
+  channel
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'appointments',
+        filter: `${profile.role === 'student' ? 'student_id' : 'counsellor_id'}=eq.${profile.id}`,
+      },
+      (payload) => {
+        // console.log('Update received:', payload);
+        fetchAppointments(profile.id, profile.role);
+      }
+    )
+    .subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        // console.log('Home channel live');
+      }
+    });
+
+  return () => {
+    // console.log('Cleaning up Home subscription...');
+    supabase.removeChannel(channel);
+  };
+}, [profile?.id, profile?.role]);
   if (loading) return <ActivityIndicator className="flex-1" />;
 
   return (
