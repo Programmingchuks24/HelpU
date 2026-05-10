@@ -173,36 +173,41 @@ export default function ChatDetailScreen() {
   }, [id]);
 
   // Realtime Logic
-  useEffect(() => {
-    if (!myId) return;
-    const channel = supabase
-      .channel(`chat_${id}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "messages" }, // Listen for ALL events (*)
-        (payload) => {
-          if (payload.eventType === "INSERT") {
-            const msg = payload.new;
-            if (
-              (msg.sender_id === myId && msg.receiver_id === id) ||
-              (msg.sender_id === id && msg.receiver_id === myId)
-            ) {
-              setMessages((prev) =>
-                prev.some((m) => m.id === msg.id) ? prev : [...prev, msg],
-              );
-            }
-          } else if (payload.eventType === "DELETE") {
-            // Handle real-time deletion
-            setMessages((prev) => prev.filter((m) => m.id !== payload.old.id));
-          }
-        },
-      )
-      .subscribe();
+ useEffect(() => {
+  if (!myId || !id) return;
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [myId, id]);
+  // Create, configure, AND subscribe in one chain
+  const channel = supabase
+    .channel(`chat_${id}`)
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "messages" },
+      (payload) => {
+        if (payload.eventType === "INSERT") {
+          const msg = payload.new;
+          if (
+            (msg.sender_id === myId && msg.receiver_id === id) ||
+            (msg.sender_id === id && msg.receiver_id === myId)
+          ) {
+            setMessages((prev) =>
+              prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]
+            );
+          }
+        } else if (payload.eventType === "DELETE") {
+          setMessages((prev) => prev.filter((m) => m.id !== payload.old.id));
+        }
+      }
+    )
+    .subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        console.log('Connected to Realtime!');
+      }
+    });
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, [myId, id]); // Ensure these are the only dependencies
 
   // GUARD: If no ID, don't try to render anything that might crash
   if (!id)
