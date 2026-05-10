@@ -80,26 +80,56 @@ export default function ChatDetailScreen() {
     setIsUploading(false);
   };
 
-  const deleteMessage = async (messageId: string, item: any) => {
-    const { error } = await supabase
-      .from("messages")
-      .delete()
-      .eq("id", messageId)
-      .eq("sender_id", myId); // Security: Only delete your own messages
+  const deleteMessage = async (item: any) => {
+    const messageId = item.id; // Get the ID from the object
 
-    if (!error) {
-      setMessages((prev) => prev.filter((m) => m.id !== messageId));
-    }
+    if (!item) return; // Guard clause
 
+    // 1. Storage Cleanup First
     if (item.image_url) {
-      const path = item.image_url.split("chat-attachments/").pop();
-      if (path) {
-        await supabase.storage.from("chat-attachments").remove([path]);
+      try {
+        // Logic: Extract path after 'chat-attachments/' and remove any URL queries
+        const pathWithPossibleQueries = item.image_url
+          .split("chat-attachments/")
+          .pop();
+        const cleanPath = pathWithPossibleQueries?.split("?")[0];
+
+        if (cleanPath) {
+          const { error: storageError } = await supabase.storage
+            .from("chat-attachments")
+            .remove([decodeURIComponent(cleanPath)]); // decode handles spaces/special chars
+
+          if (storageError)
+            console.error("Storage delete error:", storageError);
+        }
+      } catch (err) {
+        console.error("Path extraction failed:", err);
       }
     }
 
-    // 2. Delete from Database
-    await supabase.from("messages").delete().eq("id", item.id);
+    // 2. Database Deletion
+    const { error } = await supabase
+    .from("messages")
+    .delete()
+    .eq("id", messageId)
+    .eq("sender_id", myId);
+    
+  if (!error) {
+    setMessages((prev) => prev.filter((m) => m.id !== messageId));
+  }
+
+
+    const pathWithPossibleQueries = item.image_url
+      .split("chat-attachments/")
+      .pop();
+    const cleanPath = pathWithPossibleQueries?.split("?")[0];
+
+    if (cleanPath) {
+      // Use decodeURIComponent to turn %2F back into /
+      const { error: storageError } = await supabase.storage
+        .from("chat-attachments")
+        .remove([decodeURIComponent(cleanPath)]);
+    }
   };
 
   // Inside ChatDetailScreen component
@@ -241,7 +271,7 @@ export default function ChatDetailScreen() {
                       {
                         text: "Delete",
                         style: "destructive",
-                        onPress: () => deleteMessage(item.id),
+                        onPress: () => deleteMessage(item),
                       },
                     ],
                   );
