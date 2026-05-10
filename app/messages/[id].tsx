@@ -2,7 +2,7 @@ import { supabase } from "@/lib/supabase";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   Alert,
   FlatList,
@@ -12,12 +12,11 @@ import {
   Pressable,
   Text,
   TextInput,
-  View, 
+  View,
   Modal,
   ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
 
 export default function ChatDetailScreen() {
   const { id, name } = useLocalSearchParams();
@@ -30,6 +29,7 @@ export default function ChatDetailScreen() {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const flatListRef = useRef<FlatList>(null);
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -63,9 +63,9 @@ export default function ChatDetailScreen() {
       .upload(filePath, formData);
 
     if (data) {
-      const { data: { publicUrl } } = supabase.storage
-        .from("chat-attachments")
-        .getPublicUrl(filePath);
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("chat-attachments").getPublicUrl(filePath);
 
       await supabase.from("messages").insert({
         content: inputText.trim() || "Sent an image", // Attach the text here!
@@ -80,7 +80,7 @@ export default function ChatDetailScreen() {
     setIsUploading(false);
   };
 
-  const deleteMessage = async (messageId: string) => {
+  const deleteMessage = async (messageId: string, item: any) => {
     const { error } = await supabase
       .from("messages")
       .delete()
@@ -90,6 +90,16 @@ export default function ChatDetailScreen() {
     if (!error) {
       setMessages((prev) => prev.filter((m) => m.id !== messageId));
     }
+
+    if (item.image_url) {
+      const path = item.image_url.split("chat-attachments/").pop();
+      if (path) {
+        await supabase.storage.from("chat-attachments").remove([path]);
+      }
+    }
+
+    // 2. Delete from Database
+    await supabase.from("messages").delete().eq("id", item.id);
   };
 
   // Inside ChatDetailScreen component
@@ -148,18 +158,20 @@ export default function ChatDetailScreen() {
               (msg.sender_id === id && msg.receiver_id === myId)
             ) {
               setMessages((prev) =>
-                prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]
+                prev.some((m) => m.id === msg.id) ? prev : [...prev, msg],
               );
             }
           } else if (payload.eventType === "DELETE") {
             // Handle real-time deletion
             setMessages((prev) => prev.filter((m) => m.id !== payload.old.id));
           }
-        }
+        },
       )
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [myId, id]);
 
   // GUARD: If no ID, don't try to render anything that might crash
@@ -199,23 +211,44 @@ export default function ChatDetailScreen() {
         </Text>
       </View>
 
-     <FlatList
+      <FlatList
         data={messages}
         keyExtractor={(item) => item.id?.toString()}
         contentContainerStyle={{ padding: 20 }}
+        ref={flatListRef}
+        onContentSizeChange={() =>
+          flatListRef.current?.scrollToEnd({ animated: true })
+        }
+        onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
         renderItem={({ item }) => {
           const isMine = item.sender_id === myId;
           return (
-            <View style={{ alignSelf: isMine ? "flex-end" : "flex-start", marginBottom: 12, maxWidth: '80%' }}>
+            <View
+              style={{
+                alignSelf: isMine ? "flex-end" : "flex-start",
+                marginBottom: 12,
+                maxWidth: "80%",
+              }}
+            >
               <Pressable
                 onLongPress={() => {
                   if (!isMine) return; // Only delete your own
-                  Alert.alert("Delete Message", "Delete this message for everyone?", [
-                    { text: "Cancel", style: "cancel" },
-                    { text: "Delete", style: "destructive", onPress: () => deleteMessage(item.id) },
-                  ]);
+                  Alert.alert(
+                    "Delete Message",
+                    "Delete this message for everyone?",
+                    [
+                      { text: "Cancel", style: "cancel" },
+                      {
+                        text: "Delete",
+                        style: "destructive",
+                        onPress: () => deleteMessage(item.id),
+                      },
+                    ],
+                  );
                 }}
-                onPress={() => item.image_url && setSelectedImage(item.image_url)}
+                onPress={() =>
+                  item.image_url && setSelectedImage(item.image_url)
+                }
                 style={{
                   backgroundColor: isMine ? "#00822F" : "white",
                   padding: item.image_url ? 4 : 12, // Less padding for images
@@ -235,12 +268,15 @@ export default function ChatDetailScreen() {
                   />
                 )}
                 {/* Hide text bubble if it's just the 'Sent an image' fallback */}
-                {(item.content && item.content !== "Sent an image") || !item.image_url ? (
-                  <Text style={{ 
-                    color: isMine ? "white" : "black", 
-                    padding: item.image_url ? 8 : 0,
-                    fontSize: 16 
-                  }}>
+                {(item.content && item.content !== "Sent an image") ||
+                !item.image_url ? (
+                  <Text
+                    style={{
+                      color: isMine ? "white" : "black",
+                      padding: item.image_url ? 8 : 0,
+                      fontSize: 16,
+                    }}
+                  >
                     {item.content}
                   </Text>
                 ) : null}
@@ -251,36 +287,69 @@ export default function ChatDetailScreen() {
       />
 
       <Modal visible={!!previewImage} animationType="slide">
-        <View style={{ flex: 1, backgroundColor: 'black', paddingTop: insets.top }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', padding: 20 }}>
-             <Pressable onPress={() => setPreviewImage(null)}>
-               <Ionicons name="close" size={30} color="white" />
-             </Pressable>
-             <Text style={{ color: 'white', fontSize: 18, fontWeight: 'bold' }}>Send Image</Text>
-             <View style={{ width: 30 }} />
+        <View
+          style={{ flex: 1, backgroundColor: "black", paddingTop: insets.top }}
+        >
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              padding: 20,
+            }}
+          >
+            <Pressable onPress={() => setPreviewImage(null)}>
+              <Ionicons name="close" size={30} color="white" />
+            </Pressable>
+            <Text style={{ color: "white", fontSize: 18, fontWeight: "bold" }}>
+              Send Image
+            </Text>
+            <View style={{ width: 30 }} />
           </View>
-          
-          <Image 
-            source={{ uri: previewImage || undefined }} 
-            style={{ flex: 1, resizeMode: 'contain' }} 
+
+          <Image
+            source={{ uri: previewImage || undefined }}
+            style={{ flex: 1, resizeMode: "contain" }}
           />
 
-          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"}>
-            <View style={{ padding: 20, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.8)' }}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+          >
+            <View
+              style={{
+                padding: 20,
+                flexDirection: "row",
+                alignItems: "center",
+                backgroundColor: "rgba(0,0,0,0.8)",
+              }}
+            >
               <TextInput
                 value={inputText}
                 onChangeText={setInputText}
                 placeholder="Add a caption..."
                 placeholderTextColor="#999"
-                style={{ flex: 1, color: 'white', backgroundColor: '#333', padding: 12, borderRadius: 25, marginRight: 10 }}
+                style={{
+                  flex: 1,
+                  color: "white",
+                  backgroundColor: "#333",
+                  padding: 12,
+                  borderRadius: 25,
+                  marginRight: 10,
+                }}
               />
-              <Pressable 
-                onPress={uploadAndSendImage} 
+              <Pressable
+                onPress={uploadAndSendImage}
                 disabled={isUploading}
-                style={{ backgroundColor: '#00822F', width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center' }}
+                style={{
+                  backgroundColor: "#00822F",
+                  width: 50,
+                  height: 50,
+                  borderRadius: 25,
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}
               >
                 {isUploading ? (
-                   <ActivityIndicator color="white" />
+                  <ActivityIndicator color="white" />
                 ) : (
                   <Ionicons name="send" size={24} color="white" />
                 )}
@@ -291,25 +360,41 @@ export default function ChatDetailScreen() {
       </Modal>
 
       <Modal visible={!!selectedImage} transparent={false} animationType="fade">
-        <View style={{ flex: 1, backgroundColor: 'black' }}>
-          <Pressable 
+        <View style={{ flex: 1, backgroundColor: "black" }}>
+          <Pressable
             onPress={() => setSelectedImage(null)}
-            style={{ position: 'absolute', top: insets.top + 10, right: 20, zIndex: 10, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20, padding: 5 }}
+            style={{
+              position: "absolute",
+              top: insets.top + 10,
+              right: 20,
+              zIndex: 10,
+              backgroundColor: "rgba(0,0,0,0.5)",
+              borderRadius: 20,
+              padding: 5,
+            }}
           >
             <Ionicons name="close" size={30} color="white" />
           </Pressable>
-          <Image 
-            source={{ uri: selectedImage || undefined }} 
-            style={{ flex: 1, resizeMode: 'contain' }} 
+          <Image
+            source={{ uri: selectedImage || undefined }}
+            style={{ flex: 1, resizeMode: "contain" }}
           />
         </View>
       </Modal>
 
-
-
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={90}>
-        <View style={{ padding: 15, backgroundColor: "white", flexDirection: "row", alignItems: 'center', paddingBottom: insets.bottom + 10 }}>
-          
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={90}
+      >
+        <View
+          style={{
+            padding: 15,
+            backgroundColor: "white",
+            flexDirection: "row",
+            alignItems: "center",
+            paddingBottom: insets.bottom + 10,
+          }}
+        >
           {/* Image Picker Button */}
           <Pressable onPress={pickImage} style={{ marginRight: 10 }}>
             <Ionicons name="add-circle-outline" size={32} color="#00822F" />
@@ -319,12 +404,26 @@ export default function ChatDetailScreen() {
             value={inputText}
             onChangeText={setInputText}
             placeholder="Type a message..."
-            style={{ flex: 1, backgroundColor: "#f0f0f0", padding: 12, borderRadius: 25, marginRight: 10, fontSize: 16 }}
+            style={{
+              flex: 1,
+              backgroundColor: "#f0f0f0",
+              padding: 12,
+              borderRadius: 25,
+              marginRight: 10,
+              fontSize: 16,
+            }}
           />
 
           <Pressable
             onPress={sendMessage}
-            style={{ backgroundColor: "black", width: 45, height: 45, borderRadius: 22, justifyContent: "center", alignItems: "center" }}
+            style={{
+              backgroundColor: "black",
+              width: 45,
+              height: 45,
+              borderRadius: 22,
+              justifyContent: "center",
+              alignItems: "center",
+            }}
           >
             <Ionicons name="send" size={20} color="white" />
           </Pressable>
@@ -333,4 +432,3 @@ export default function ChatDetailScreen() {
     </View>
   );
 }
-   
