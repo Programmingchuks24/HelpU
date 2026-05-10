@@ -12,9 +12,12 @@ import {
   Pressable,
   Text,
   TextInput,
-  View,
+  View, 
+  Modal,
+  ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
 
 export default function ChatDetailScreen() {
   const { id, name } = useLocalSearchParams();
@@ -24,43 +27,40 @@ export default function ChatDetailScreen() {
   const [messages, setMessages] = useState<any[]>([]);
   const [inputText, setInputText] = useState("");
   const [myId, setMyId] = useState<string | null>(null);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
-  const pickAndSendImage = async () => {
-  const result = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: ImagePicker.MediaTypeOptions.Images,
-    quality: 0.5,
-  });
+  const pickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.5,
+    });
 
-  if (result.canceled) return;
+    if (!result.canceled) {
+      setPreviewImage(result.assets[0].uri);
+    }
+  };
 
-  const image = result.assets[0];
-  const fileExt = image.uri.split(".").pop();
-  const fileName = `${Date.now()}.${fileExt}`; // Use timestamp for unique names
-  const filePath = `${myId}/${fileName}`;
+  // 2. The function that actually uploads
+  const uploadAndSendImage = async () => {
+    if (!previewImage || !myId) return;
+    setIsUploading(true);
 
-  // NATIVE FIX: Ensure the URI is clean for the upload
-  const cleanUri = Platform.OS === 'ios' ? image.uri.replace('file://', '') : image.uri;
+    const fileExt = previewImage.split(".").pop();
+    const fileName = `${Date.now()}.${fileExt}`;
+    const filePath = `${myId}/${fileName}`;
 
-  const formData = new FormData();
-  formData.append("file", {
-    uri: image.uri, // Some environments prefer the full URI, some the clean one. Try both if one fails.
-    name: fileName,
-    type: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`, // Standardize jpeg
-  } as any);
+    const formData = new FormData();
+    formData.append("file", {
+      uri: previewImage,
+      name: fileName,
+      type: `image/${fileExt}`,
+    } as any);
 
-  try {
     const { data, error } = await supabase.storage
       .from("chat-attachments")
-      .upload(filePath, formData, {
-        contentType: `image/${fileExt}`,
-        upsert: false
-      });
-
-    if (error) {
-      console.error("Storage Upload Error:", error.message);
-      Alert.alert("Upload Failed", error.message);
-      return;
-    }
+      .upload(filePath, formData);
 
     if (data) {
       const { data: { publicUrl } } = supabase.storage
@@ -68,16 +68,17 @@ export default function ChatDetailScreen() {
         .getPublicUrl(filePath);
 
       await supabase.from("messages").insert({
-        content: "Sent an image",
+        content: inputText.trim() || "Sent an image", // Attach the text here!
         sender_id: myId,
         receiver_id: id,
         image_url: publicUrl,
       });
+
+      setPreviewImage(null); // Close modal
+      setInputText(""); // Clear text
     }
-  } catch (err) {
-    console.error("Upload Catch:", err);
-  }
-};
+    setIsUploading(false);
+  };
 
   const deleteMessage = async (messageId: string) => {
     const { error } = await supabase
@@ -214,6 +215,7 @@ export default function ChatDetailScreen() {
                     { text: "Delete", style: "destructive", onPress: () => deleteMessage(item.id) },
                   ]);
                 }}
+                onPress={() => item.image_url && setSelectedImage(item.image_url)}
                 style={{
                   backgroundColor: isMine ? "#00822F" : "white",
                   padding: item.image_url ? 4 : 12, // Less padding for images
@@ -248,11 +250,68 @@ export default function ChatDetailScreen() {
         }}
       />
 
+      <Modal visible={!!previewImage} animationType="slide">
+        <View style={{ flex: 1, backgroundColor: 'black', paddingTop: insets.top }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', padding: 20 }}>
+             <Pressable onPress={() => setPreviewImage(null)}>
+               <Ionicons name="close" size={30} color="white" />
+             </Pressable>
+             <Text style={{ color: 'white', fontSize: 18, fontWeight: 'bold' }}>Send Image</Text>
+             <View style={{ width: 30 }} />
+          </View>
+          
+          <Image 
+            source={{ uri: previewImage || undefined }} 
+            style={{ flex: 1, resizeMode: 'contain' }} 
+          />
+
+          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"}>
+            <View style={{ padding: 20, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.8)' }}>
+              <TextInput
+                value={inputText}
+                onChangeText={setInputText}
+                placeholder="Add a caption..."
+                placeholderTextColor="#999"
+                style={{ flex: 1, color: 'white', backgroundColor: '#333', padding: 12, borderRadius: 25, marginRight: 10 }}
+              />
+              <Pressable 
+                onPress={uploadAndSendImage} 
+                disabled={isUploading}
+                style={{ backgroundColor: '#00822F', width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center' }}
+              >
+                {isUploading ? (
+                   <ActivityIndicator color="white" />
+                ) : (
+                  <Ionicons name="send" size={24} color="white" />
+                )}
+              </Pressable>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
+
+      <Modal visible={!!selectedImage} transparent={false} animationType="fade">
+        <View style={{ flex: 1, backgroundColor: 'black' }}>
+          <Pressable 
+            onPress={() => setSelectedImage(null)}
+            style={{ position: 'absolute', top: insets.top + 10, right: 20, zIndex: 10, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20, padding: 5 }}
+          >
+            <Ionicons name="close" size={30} color="white" />
+          </Pressable>
+          <Image 
+            source={{ uri: selectedImage || undefined }} 
+            style={{ flex: 1, resizeMode: 'contain' }} 
+          />
+        </View>
+      </Modal>
+
+
+
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={90}>
         <View style={{ padding: 15, backgroundColor: "white", flexDirection: "row", alignItems: 'center', paddingBottom: insets.bottom + 10 }}>
           
           {/* Image Picker Button */}
-          <Pressable onPress={pickAndSendImage} style={{ marginRight: 10 }}>
+          <Pressable onPress={pickImage} style={{ marginRight: 10 }}>
             <Ionicons name="add-circle-outline" size={32} color="#00822F" />
           </Pressable>
 
