@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Image } from "expo-image";
 
 export default function MessagesScreen() {
   const insets = useSafeAreaInsets();
@@ -106,11 +107,10 @@ export default function MessagesScreen() {
                 alignItems: "center",
               }}
             >
-              <Text
-                style={{ color: "white", fontWeight: "bold", fontSize: 18 }}
-              >
-                {item.full_name?.charAt(0)}
-              </Text>
+             <Image 
+  source={{ uri: item.other_person_avatar || 'https://via.placeholder.com/150' }} 
+  style={{ width: 50, height: 50, borderRadius: 25 }} 
+/>
             </View>
 
             <View style={{ flex: 1, marginLeft: 15 }}>
