@@ -12,6 +12,7 @@ import { supabase } from "@/lib/supabase";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from 'expo-image-picker';
+import { decode } from 'base64-arraybuffer';
 export default function ProfileScreen() {
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState<any>(null);

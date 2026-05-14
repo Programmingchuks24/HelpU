@@ -24,6 +24,7 @@ export default function MessagesScreen() {
     } = await supabase.auth.getUser();
     if (!user) return;
 
+    // Fetching from the updated view that now includes other_person_avatar
     const { data, error } = await supabase
       .from("conversation_summary")
       .select("*")
@@ -33,11 +34,11 @@ export default function MessagesScreen() {
       const formatted = data.map((item) => ({
         id: item.contact_id,
         full_name: item.contact_name,
-        // Fallback text if no message exists
+        // The new avatar field from our SQL view
+        avatar: item.other_person_avatar,
         lastMessage:
           item.last_text || "No messages yet. Tap to start chatting!",
         isUnread: item.receiver_id === user.id && !item.is_read,
-        // Fallback time if no message exists
         time: item.last_sent_at
           ? new Date(item.last_sent_at).toLocaleTimeString([], {
               hour: "2-digit",
@@ -61,7 +62,7 @@ export default function MessagesScreen() {
         { event: "*", schema: "public", table: "messages" },
         () => {
           fetchConversations();
-        },
+        }
       )
       .subscribe();
 
@@ -97,22 +98,33 @@ export default function MessagesScreen() {
               backgroundColor: item.isUnread ? "#F7F9F7" : "white",
             }}
           >
+            {/* Avatar Container */}
             <View
               style={{
                 width: 55,
                 height: 55,
                 borderRadius: 27.5,
-                backgroundColor: "#00822F",
+                backgroundColor: "#E8F5E9",
                 justifyContent: "center",
                 alignItems: "center",
+                overflow: "hidden", // Ensures the image stays round
               }}
             >
-             <Image 
-  source={{ uri: item.other_person_avatar || 'https://via.placeholder.com/150' }} 
-  style={{ width: 50, height: 50, borderRadius: 25 }} 
-/>
+              {item.avatar ? (
+                <Image
+                  source={{ uri: item.avatar }}
+                  style={{ width: "100%", height: "100%" }}
+                  contentFit="cover"
+                  transition={200}
+                />
+              ) : (
+                <Text style={{ color: "#00822F", fontWeight: "bold", fontSize: 18 }}>
+                  {item.full_name?.[0] || "?"}
+                </Text>
+              )}
             </View>
 
+            {/* Message Preview Text */}
             <View style={{ flex: 1, marginLeft: 15 }}>
               <View
                 style={{
