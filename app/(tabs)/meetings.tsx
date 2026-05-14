@@ -63,38 +63,40 @@ export default function MeetingsScreen() {
     .order("appointment_date", { ascending: true });
 
   if (!error && data) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Reset to start of today for date-only comparison
+  // 1. Normalize 'today' to the very start of the day (midnight)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); 
 
-    const pendingList: any[] = [];
-    const upcomingList: any[] = [];
-    const pastList: any[] = [];
+  const pendingList: any[] = [];
+  const upcomingList: any[] = [];
+  const pastList: any[] = [];
 
-    data.forEach(apt => {
-      const status = apt.status?.toLowerCase().trim();
-      
-      // Parse the date components manually to avoid timezone shifts
-      const [year, month, day] = apt.appointment_date.split('-').map(Number);
-      const aptDate = new Date(year, month - 1, day);
+  data.forEach(apt => {
+    const status = apt.status?.toLowerCase().trim();
+    
+    // 2. Parse the date components
+    const [year, month, day] = apt.appointment_date.split('-').map(Number);
+    const aptDate = new Date(year, month - 1, day);
+    aptDate.setHours(0, 0, 0, 0); // Ensure this is also midnight
 
-      if (status === "pending") {
-        pendingList.push(apt);
-      } else if (status === "confirmed") {
-        // If the appointment is today or in the future, show in Upcoming
-        if (aptDate >= today) {
-          upcomingList.push(apt);
-        } else {
-          pastList.push(apt);
-        }
-      } else if (status === "cancelled") {
+    if (status === "pending") {
+      pendingList.push(apt);
+    } else if (status === "confirmed") {
+      // 3. This check now compares only the Calendar Date
+      if (aptDate.getTime() >= today.getTime()) {
+        upcomingList.push(apt);
+      } else {
         pastList.push(apt);
       }
-    });
+    } else if (status === "cancelled") {
+      pastList.push(apt);
+    }
+  });
 
-    setPending(pendingList);
-    setUpcoming(upcomingList);
-    setPast(pastList);
-  }
+  setPending(pendingList);
+  setUpcoming(upcomingList);
+  setPast(pastList);
+}
   setLoading(false);
 };
 
