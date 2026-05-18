@@ -1,16 +1,17 @@
 import { images } from "@/constants/images";
 import { router } from "expo-router";
 import React, { useState } from "react";
-import { Image, Pressable, ScrollView, Text, TextInput, View, ActivityIndicator } from "react-native";
+import { ActivityIndicator, Image, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import ToastManager, { Toast } from "toastify-react-native";
 
 // IMPORT SUPABASE
-import { supabase } from "@/lib/supabase"; 
+import { supabase } from "@/lib/supabase";
 
 const Login = () => {
   const [newVal, setNewVal] = useState(''); // Email
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const navcool = () => {
     router.push("/login/signup");
@@ -58,13 +59,20 @@ const Login = () => {
                 className="border-b border-gray-300 w-[85%] py-2 text-lg"
               />
       
-              <TextInput
-                placeholder="Password"
-                secureTextEntry
-                value={password}
-                onChangeText={setPassword}
-                className="border-b border-gray-300 w-[85%] py-2 text-lg"
-              />
+              <View className="flex-row items-center border-b border-gray-300 w-[85%] py-2">
+                <TextInput
+                  placeholder="Password"
+                  secureTextEntry={!showPassword}
+                  value={password}
+                  onChangeText={setPassword}
+                  className="flex-1 text-lg"
+                />
+                <Pressable onPress={() => setShowPassword(!showPassword)} className="ml-2">
+                  <Text className="text-lg font-bold text-gray-600">
+                    {showPassword ? "Hide" : "Show"}
+                  </Text>
+                </Pressable>
+              </View>
       
               <Pressable 
                 className={`px-20 py-4 rounded-full w-[85%] justify-center items-center ${loading ? 'bg-gray-500' : 'bg-black'}`} 
