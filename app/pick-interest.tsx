@@ -3,7 +3,7 @@ import { router } from "expo-router";
 import { useState } from "react"; // Add this
 import { Pressable, Text, View } from "react-native";
 
-const CATEGORIES = ["Personal", "Academic"];
+const CATEGORIES = ["Personal", "Academics"];
 
 export default function PickInterests() {
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
